@@ -1,0 +1,698 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>서울 조기축구</title>
+<style>
+  :root {
+    --green: #1f7a4d;
+    --green-dark: #165c39;
+    --bg: #f5f7f6;
+    --card: #ffffff;
+    --text: #1d2522;
+    --muted: #6b7772;
+    --line: #dfe5e2;
+    --danger: #c0392b;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.55;
+  }
+  header { background: var(--green); color: #fff; position: sticky; top: 0; z-index: 10; }
+  .bar { max-width: 880px; margin: 0 auto; padding: 12px 16px; display: flex; align-items: center; gap: 10px; }
+  .logo { font-weight: 700; font-size: 18px; cursor: pointer; flex: 1; }
+  main { max-width: 880px; margin: 0 auto; padding: 16px; }
+  button {
+    font: inherit; border: 0; border-radius: 8px; padding: 8px 14px;
+    background: var(--green); color: #fff; cursor: pointer;
+  }
+  button:hover { background: var(--green-dark); }
+  button.ghost { background: transparent; color: #fff; border: 1px solid rgba(255,255,255,.6); }
+  button.ghost:hover { background: rgba(255,255,255,.12); }
+  button.light { background: #fff; color: var(--green); border: 1px solid var(--green); }
+  button.light:hover { background: #eef6f1; }
+  button.link { background: none; color: var(--muted); padding: 2px 6px; font-size: 13px; }
+  button.link:hover { background: none; color: var(--danger); }
+  button:disabled { opacity: .5; cursor: default; }
+  .filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; margin-bottom: 14px; }
+  input, select, textarea {
+    font: inherit; width: 100%; padding: 9px 10px; border: 1px solid var(--line);
+    border-radius: 8px; background: #fff; color: var(--text);
+  }
+  select:disabled { background: #f0f2f1; color: var(--muted); }
+  textarea { min-height: 96px; resize: vertical; }
+  label { display: block; font-size: 14px; font-weight: 600; margin: 12px 0 4px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; margin-bottom: 10px; }
+  .team-card { cursor: pointer; }
+  .team-card:hover { border-color: var(--green); }
+  .team-card h3 { margin: 0 0 4px; font-size: 17px; }
+  .tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+  .tag { background: #eaf4ee; color: var(--green-dark); border-radius: 999px; padding: 2px 10px; font-size: 13px; }
+  .muted { color: var(--muted); font-size: 14px; }
+  .stars { color: #e5a400; letter-spacing: 1px; }
+  .row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .spread { justify-content: space-between; }
+  .empty { text-align: center; color: var(--muted); padding: 40px 0; }
+  h2 { margin: 4px 0 12px; }
+  .back { background: none; color: var(--green); padding: 0; margin-bottom: 8px; }
+  .back:hover { background: none; text-decoration: underline; }
+  .notice { background: #fff4e5; border: 1px solid #f0c987; border-radius: 10px; padding: 12px 14px; margin-bottom: 14px; font-size: 14px; }
+  dialog { border: 0; border-radius: 14px; padding: 20px; width: min(92vw, 380px); }
+  dialog::backdrop { background: rgba(0,0,0,.4); }
+  #toast {
+    position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%);
+    background: #222; color: #fff; padding: 10px 16px; border-radius: 10px;
+    font-size: 14px; opacity: 0; pointer-events: none; transition: opacity .2s;
+    max-width: 90vw; text-align: center; z-index: 50;
+  }
+  #toast.show { opacity: 1; }
+  .review-text { white-space: pre-wrap; word-break: break-word; margin: 6px 0 0; }
+  a { color: var(--green); }
+
+  /* 지역 검색 */
+  .loc-wrap { position: relative; }
+  .loc-list {
+    position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 20;
+    background: #fff; border: 1px solid var(--line); border-radius: 10px;
+    max-height: 260px; overflow-y: auto; box-shadow: 0 6px 18px rgba(0,0,0,.12);
+  }
+  .loc-item { padding: 9px 12px; cursor: pointer; font-size: 15px; }
+  .loc-item:hover { background: #eef6f1; }
+  .picked { margin-top: 6px; font-size: 14px; color: var(--green-dark); min-height: 20px; }
+
+  /* 요일·시간대 칩 */
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip {
+    background: #fff; color: var(--text); border: 1px solid var(--line);
+    padding: 6px 12px; border-radius: 999px; font-size: 14px;
+  }
+  .chip:hover { background: #eef6f1; }
+  .chip.on, .chip.on:hover { background: var(--green); color: #fff; border-color: var(--green); }
+  .chip.has { border-color: var(--green); }
+  .chip.has::after { content: " •"; color: var(--green); }
+  .chip.on.has::after { color: #fff; }
+  .rank { vertical-align: -2px; }
+  .level-desc { font-size: 14px; color: var(--muted); margin-top: 6px; min-height: 20px; }
+</style>
+</head>
+<body>
+<header>
+  <div class="bar">
+    <div class="logo" id="logo">⚽ 서울 조기축구</div>
+    <button class="ghost" id="btn-new">팀 등록</button>
+    <button class="ghost" id="btn-auth">로그인</button>
+  </div>
+</header>
+
+<main id="app"></main>
+
+<dialog id="auth-dialog">
+  <h3 style="margin-top:0">로그인 / 회원가입</h3>
+  <label for="auth-email">이메일</label>
+  <input id="auth-email" type="email" autocomplete="email" placeholder="example@email.com">
+  <label for="auth-pw">비밀번호 (6자 이상)</label>
+  <input id="auth-pw" type="password" autocomplete="current-password">
+  <div class="row" style="margin-top:16px">
+    <button id="auth-login">로그인</button>
+    <button class="light" id="auth-signup">회원가입</button>
+    <button class="link" id="auth-close" style="margin-left:auto">닫기</button>
+  </div>
+</dialog>
+
+<div id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<script src="dongs.js"></script>
+<script>
+/* 연결 값은 config.js 파일에 있습니다. 이 파일은 고치지 않아도 됩니다. */
+let SB_URL = "";
+let SB_KEY = "";
+try {
+  SB_URL = new URL(String(window.SUPABASE_URL || "").trim()).origin;   // 뒤에 붙은 /rest/v1 같은 경로는 자동 제거
+} catch (e) { SB_URL = ""; }
+SB_KEY = String(window.SUPABASE_KEY || "").trim();
+
+const configured = SB_URL.startsWith("https://") && SB_KEY.length > 30;
+const sb = configured ? window.supabase.createClient(SB_URL, SB_KEY) : null;
+
+/* ---------- 고정 목록 ---------- */
+const SEOUL_DONGS = window.SEOUL_DONGS || {};
+const GU_LIST = Object.keys(SEOUL_DONGS).sort();
+const DONG_ITEMS = GU_LIST.flatMap(gu => SEOUL_DONGS[gu].map(dong => ({ gu, dong })));
+
+const DAYS = ["월","화","수","목","금","토","일"];
+const SLOTS = ["05-07","07-09","09-11","11-13","13-15","15-17","17-19","19-21","21-23"];
+const LEVELS = [
+  { name: "이병 · 컵위너",     desc: "입문·친목 팀. 대회 경험이 없어도 괜찮아요" },
+  { name: "일병 · 유로파위너", desc: "동네 리그나 친선대회에 나가 본 팀" },
+  { name: "상병 · 챔스위너",   desc: "구 단위 대회에서 입상해 본 팀" },
+  { name: "병장 · 월드컵위너", desc: "서울 규모 대회 입상 또는 선수 출신이 많은 팀" }
+];
+const LEVEL_NAMES = LEVELS.map(l => l.name);
+
+// 계급장(∧ 모양)을 이병 1개 ~ 병장 4개로 그려서 이름 앞에 붙임
+function rankSvg(n) {
+  const h = 4 * n + 3;
+  let p = "";
+  for (let i = 0; i < n; i++) {
+    const y = 2 + i * 4;
+    p += `<polyline points="1,${y + 3} 6,${y} 11,${y + 3}" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>`;
+  }
+  return `<svg class="rank" width="12" height="${h}" viewBox="0 0 12 ${h}" aria-hidden="true">${p}</svg>`;
+}
+function levelHtml(name) {
+  const i = LEVEL_NAMES.indexOf(name);
+  return (i >= 0 ? rankSvg(i + 1) + " " : "") + esc(name);
+}
+
+const app = document.getElementById("app");
+let user = null;
+const filters = { q: "", loc: "", day: "", slot: "", level: "" };
+
+/* ---------- 유틸 ---------- */
+function esc(s) {
+  return String(s ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+}
+function stars(n) {
+  const r = Math.round(n);
+  return "★".repeat(r) + "☆".repeat(5 - r);
+}
+function fmtDate(s) { return new Date(s).toLocaleDateString("ko-KR"); }
+function safeUrl(u) { return /^https?:\/\//i.test(u || "") ? u : ""; }
+function options(list, selected, placeholder) {
+  const head = placeholder !== undefined ? `<option value="">${esc(placeholder)}</option>` : "";
+  return head + list.map(v => `<option value="${esc(v)}"${v === selected ? " selected" : ""}>${esc(v)}</option>`).join("");
+}
+let toastTimer;
+function toast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove("show"), 2800);
+}
+function errMsg(e) {
+  const raw = (e && e.message) ? String(e.message) : "";
+  if (!raw) return "알 수 없는 오류가 발생했습니다.";
+  const rules = [
+    [/already registered|already been registered/i, "이미 가입된 이메일입니다. 로그인해 주세요."],
+    [/invalid login credentials/i, "이메일 또는 비밀번호가 올바르지 않습니다."],
+    [/email not confirmed/i, "이메일 확인이 아직 안 되었습니다. 받은 메일의 링크를 눌러 주세요."],
+    [/at least \d+ characters|password should/i, "비밀번호는 6자 이상이어야 합니다."],
+    [/unable to validate email|invalid format|email address .* invalid|is invalid/i, "이메일 형식이 올바르지 않습니다."],
+    [/rate limit|too many requests|for security purposes/i, "요청이 너무 많습니다. 잠시 뒤에 다시 시도해 주세요."],
+    [/invalid path/i, "연결 주소(SUPABASE_URL)가 올바르지 않습니다. config.js의 주소를 확인해 주세요."],
+    [/invalid api key|apikey|jwt/i, "연결 키(SUPABASE_KEY)가 올바르지 않습니다. config.js의 키를 확인해 주세요."],
+    [/failed to fetch|networkerror|load failed/i, "서버에 연결하지 못했습니다. 인터넷 연결과 연결 주소를 확인해 주세요."],
+    [/row-level security|permission denied|not authorized/i, "권한이 없습니다. 로그인 상태를 확인해 주세요."],
+    [/could not find the .* column|schema cache/i, "데이터베이스 설정이 아직 업데이트되지 않았습니다. 안내드린 SQL을 실행했는지 확인해 주세요."],
+    [/duplicate key/i, "이미 등록된 내용입니다."],
+    [/signups? not allowed|signup is disabled/i, "현재 회원가입이 막혀 있습니다."],
+    [/error sending|sending confirmation/i, "확인 메일을 보내지 못했습니다. 잠시 뒤에 다시 시도해 주세요."]
+  ];
+  for (const [re, ko] of rules) if (re.test(raw)) return ko;
+  return "오류가 발생했습니다. (" + raw + ")";
+}
+function needLogin() {
+  toast("로그인이 필요합니다.");
+  document.getElementById("auth-dialog").showModal();
+}
+
+/* ---------- 지역 검색 (구 + 행정동) ---------- */
+// "대치동" → "대치", "전체" 제거 → 대치1동·대치2동·대치4동 모두 검색됨
+function stem(t) {
+  t = t.replace(/전체$/, "");
+  return (t.length >= 3 && t.endsWith("동")) ? t.slice(0, -1) : t;
+}
+function tokensOf(q) {
+  return String(q || "").trim().split(/\s+/).map(stem).filter(Boolean);
+}
+function locMatch(label, query) {
+  const tokens = tokensOf(query);
+  return tokens.every(t => label.includes(t));
+}
+function suggest(query, onlyDong) {
+  const tokens = tokensOf(query);
+  const out = [];
+  if (!onlyDong) {
+    GU_LIST.forEach(gu => {
+      if (tokens.every(t => gu.includes(t))) out.push({ label: gu + " 전체", gu, dong: null });
+    });
+  }
+  if (tokens.length) {
+    DONG_ITEMS.forEach(it => {
+      if (tokens.every(t => (it.gu + " " + it.dong).includes(t))) out.push({ label: it.gu + " " + it.dong, gu: it.gu, dong: it.dong });
+    });
+  }
+  return out.slice(0, 60);
+}
+function setupLocPicker(input, list, opts) {
+  function show() {
+    const items = suggest(input.value, opts.onlyDong);
+    if (!items.length) { list.hidden = true; return; }
+    list.innerHTML = items.map((it, i) => `<div class="loc-item" data-i="${i}">${esc(it.label)}</div>`).join("");
+    list._items = items;
+    list.hidden = false;
+  }
+  input.addEventListener("input", () => { opts.onChange(input.value, null); show(); });
+  input.addEventListener("focus", show);
+  input.addEventListener("blur", () => setTimeout(() => { list.hidden = true; }, 150));
+  list.addEventListener("pointerdown", e => {
+    const el = e.target.closest(".loc-item");
+    if (!el) return;
+    e.preventDefault();
+    const it = list._items[Number(el.dataset.i)];
+    input.value = it.label;
+    list.hidden = true;
+    opts.onChange(it.label, it);
+  });
+}
+
+/* ---------- 요일·시간대 ---------- */
+function slotLabel(s) {
+  const [a, b] = s.split("-");
+  return a + "~" + b + "시";
+}
+function pad(n) { return String(n).padStart(2, "0"); }
+function formatSchedule(slots) {
+  const byDay = {};
+  (slots || []).forEach(s => {
+    const [d, r] = String(s).split("|");
+    if (!d || !r) return;
+    const [a, b] = r.split("-").map(Number);
+    (byDay[d] = byDay[d] || []).push([a, b]);
+  });
+  return DAYS.filter(d => byDay[d]).map(d => {
+    const arr = byDay[d].sort((x, y) => x[0] - y[0]);
+    const merged = [];
+    arr.forEach(r => {
+      const last = merged[merged.length - 1];
+      if (last && last[1] === r[0]) last[1] = r[1]; else merged.push([r[0], r[1]]);
+    });
+    return d + " " + merged.map(m => pad(m[0]) + "~" + pad(m[1]) + "시").join(", ");
+  });
+}
+function teamLabel(t) { return t.district + (t.dong ? " " + t.dong : ""); }
+
+/* ---------- 로그인 ---------- */
+const dlg = document.getElementById("auth-dialog");
+document.getElementById("auth-close").onclick = () => dlg.close();
+
+async function doAuth(mode) {
+  if (!sb) return toast("연결 값이 아직 입력되지 않았습니다. config.js를 확인해 주세요.");
+  const email = document.getElementById("auth-email").value.trim();
+  const password = document.getElementById("auth-pw").value;
+  if (!email || password.length < 6) return toast("이메일과 6자 이상의 비밀번호를 입력해 주세요.");
+  if (mode === "login") {
+    const { error } = await sb.auth.signInWithPassword({ email, password });
+    if (error) return toast("로그인 실패: " + errMsg(error));
+    dlg.close();
+    toast("로그인되었습니다.");
+  } else {
+    const { data, error } = await sb.auth.signUp({ email, password });
+    if (error) return toast("가입 실패: " + errMsg(error));
+    dlg.close();
+    toast(data.session ? "가입되었습니다." : "가입 확인 메일을 보냈습니다. 메일의 링크를 눌러 주세요.");
+  }
+}
+document.getElementById("auth-login").onclick = () => doAuth("login");
+document.getElementById("auth-signup").onclick = () => doAuth("signup");
+
+document.getElementById("btn-auth").onclick = async () => {
+  if (user) {
+    await sb.auth.signOut();
+    toast("로그아웃되었습니다.");
+  } else {
+    dlg.showModal();
+  }
+};
+document.getElementById("btn-new").onclick = () => { location.hash = "#/new"; };
+document.getElementById("logo").onclick = () => { location.hash = "#/"; };
+
+function updateHeader() {
+  document.getElementById("btn-auth").textContent = user ? "로그아웃" : "로그인";
+}
+
+/* ---------- 화면: 팀 목록 ---------- */
+async function renderList() {
+  app.innerHTML = `
+    <div class="filters">
+      <input id="f-q" placeholder="팀 이름 검색" value="${esc(filters.q)}">
+      <div class="loc-wrap">
+        <input id="f-loc" placeholder="지역 검색 (예: 대치동, 강남구)" value="${esc(filters.loc)}" autocomplete="off">
+        <div class="loc-list" id="f-loc-list" hidden></div>
+      </div>
+      <select id="f-day">
+        <option value="">전체 요일</option>
+        ${DAYS.map(d => `<option value="${d}"${d === filters.day ? " selected" : ""}>${d}요일</option>`).join("")}
+      </select>
+      <select id="f-slot"${filters.day ? "" : " disabled"}>
+        <option value="">${filters.day ? "전체 시간대" : "요일을 먼저 선택"}</option>
+        ${SLOTS.map(s => `<option value="${s}"${s === filters.slot ? " selected" : ""}>${slotLabel(s)}</option>`).join("")}
+      </select>
+      <select id="f-level">${options(LEVEL_NAMES, filters.level, "전체 실력")}</select>
+    </div>
+    <div id="list"><div class="empty">불러오는 중...</div></div>`;
+
+  const { data, error } = await sb.from("teams").select("*, reviews(rating)").order("created_at", { ascending: false });
+  if (error) {
+    document.getElementById("list").innerHTML = `<div class="empty">불러오지 못했습니다: ${esc(errMsg(error))}</div>`;
+    return;
+  }
+  const teams = data.map(t => {
+    const rs = t.reviews || [];
+    const avg = rs.length ? rs.reduce((a, r) => a + r.rating, 0) / rs.length : 0;
+    return { ...t, count: rs.length, avg };
+  });
+
+  function draw() {
+    const q = filters.q.trim().toLowerCase();
+    const shown = teams.filter(t => {
+      if (q && !t.name.toLowerCase().includes(q)) return false;
+      if (filters.loc.trim() && !locMatch(teamLabel(t), filters.loc)) return false;
+      if (filters.level && t.level !== filters.level) return false;
+      if (filters.day) {
+        const slots = t.play_slots || [];
+        const prefix = filters.day + "|";
+        if (filters.slot) {
+          if (!slots.includes(prefix + filters.slot)) return false;
+        } else if (!slots.some(s => s.startsWith(prefix))) return false;
+      }
+      return true;
+    });
+    const box = document.getElementById("list");
+    if (!shown.length) {
+      box.innerHTML = `<div class="empty">조건에 맞는 팀이 없습니다.<br>첫 번째 팀을 등록해 보세요.</div>`;
+      return;
+    }
+    box.innerHTML = shown.map(t => {
+      const sched = formatSchedule(t.play_slots);
+      const schedText = sched.length ? sched.slice(0, 2).join(" · ") + (sched.length > 2 ? ` 외 ${sched.length - 2}일` : "") : (t.play_day || "시간 미정");
+      return `
+      <div class="card team-card" data-id="${esc(t.id)}">
+        <h3>${esc(t.name)}</h3>
+        <div class="tags">
+          <span class="tag">📍 ${esc(teamLabel(t))}</span>
+          <span class="tag">🕐 ${esc(schedText)}</span>
+          <span class="tag">${levelHtml(t.level)}</span>
+        </div>
+        <div class="muted">
+          ${t.count ? `<span class="stars">${stars(t.avg)}</span> ${t.avg.toFixed(1)} · 후기 ${t.count}개` : "아직 후기가 없습니다"}
+        </div>
+      </div>`;
+    }).join("");
+    box.querySelectorAll(".team-card").forEach(el => {
+      el.onclick = () => { location.hash = "#/team/" + el.dataset.id; };
+    });
+  }
+
+  document.getElementById("f-q").oninput = e => { filters.q = e.target.value; draw(); };
+  setupLocPicker(document.getElementById("f-loc"), document.getElementById("f-loc-list"), {
+    onlyDong: false,
+    onChange: value => { filters.loc = value; draw(); }
+  });
+  document.getElementById("f-day").onchange = e => {
+    filters.day = e.target.value;
+    filters.slot = "";
+    const slotSel = document.getElementById("f-slot");
+    slotSel.disabled = !filters.day;
+    slotSel.value = "";
+    slotSel.options[0].textContent = filters.day ? "전체 시간대" : "요일을 먼저 선택";
+    draw();
+  };
+  document.getElementById("f-slot").onchange = e => { filters.slot = e.target.value; draw(); };
+  document.getElementById("f-level").onchange = e => { filters.level = e.target.value; draw(); };
+  draw();
+}
+
+/* ---------- 화면: 팀 상세 ---------- */
+async function report(targetType, targetId) {
+  if (!user) return needLogin();
+  const reason = prompt("신고 사유를 간단히 적어 주세요. (허위 후기, 홍보 도배, 욕설 등)");
+  if (!reason || !reason.trim()) return;
+  const { error } = await sb.from("reports").insert({ target_type: targetType, target_id: targetId, reason: reason.trim() });
+  toast(error ? "신고 실패: " + errMsg(error) : "신고가 접수되었습니다.");
+}
+
+async function renderTeam(id) {
+  app.innerHTML = `<div class="empty">불러오는 중...</div>`;
+  const [tRes, rRes] = await Promise.all([
+    sb.from("teams").select("*").eq("id", id).maybeSingle(),
+    sb.from("reviews").select("*").eq("team_id", id).order("created_at", { ascending: false })
+  ]);
+  if (tRes.error || !tRes.data) {
+    app.innerHTML = `<button class="back" onclick="location.hash='#/'">← 목록으로</button><div class="empty">팀을 찾을 수 없습니다.</div>`;
+    return;
+  }
+  const t = tRes.data;
+  const reviews = rRes.data || [];
+  const avg = reviews.length ? reviews.reduce((a, r) => a + r.rating, 0) / reviews.length : 0;
+  const link = safeUrl(t.contact_link);
+  const isOwner = user && t.owner_id === user.id;
+  const already = user && reviews.some(r => r.user_id === user.id);
+  const sched = formatSchedule(t.play_slots);
+  const levelInfo = LEVELS.find(l => l.name === t.level);
+
+  let formHtml;
+  if (!user) {
+    formHtml = `<div class="muted">후기를 쓰려면 로그인해 주세요.</div>`;
+  } else if (isOwner) {
+    formHtml = `<div class="muted">본인이 등록한 팀에는 후기를 쓸 수 없습니다.</div>`;
+  } else if (already) {
+    formHtml = `<div class="muted">이미 이 팀에 후기를 남기셨습니다.</div>`;
+  } else {
+    formHtml = `
+      <label for="rv-rating">별점</label>
+      <select id="rv-rating">
+        <option value="5">★★★★★ (5)</option>
+        <option value="4">★★★★☆ (4)</option>
+        <option value="3">★★★☆☆ (3)</option>
+        <option value="2">★★☆☆☆ (2)</option>
+        <option value="1">★☆☆☆☆ (1)</option>
+      </select>
+      <label for="rv-content">직접 참여해 본 경험을 적어 주세요</label>
+      <textarea id="rv-content" maxlength="1000" placeholder="분위기, 실력대, 운영 방식, 구장 상태 등"></textarea>
+      <div style="margin-top:10px"><button id="rv-submit">후기 등록</button></div>`;
+  }
+
+  app.innerHTML = `
+    <button class="back" id="back">← 목록으로</button>
+    <div class="card">
+      <div class="row spread">
+        <h2 style="margin:0">${esc(t.name)}</h2>
+        <button class="link" id="report-team">신고</button>
+      </div>
+      <div class="tags">
+        <span class="tag">📍 ${esc(teamLabel(t))}</span>
+        <span class="tag">${levelHtml(t.level)}</span>
+      </div>
+      ${levelInfo ? `<div class="muted">${esc(levelInfo.desc)}</div>` : ""}
+      <p style="margin:10px 0 4px"><b>🕐 활동 시간</b></p>
+      ${sched.length ? `<ul style="margin:0 0 8px;padding-left:20px">${sched.map(s => `<li>${esc(s)}</li>`).join("")}</ul>` : `<div class="muted" style="margin-bottom:8px">${esc(t.play_day || "시간 미정")}</div>`}
+      <div class="muted">${reviews.length ? `<span class="stars">${stars(avg)}</span> ${avg.toFixed(1)} · 후기 ${reviews.length}개` : "아직 후기가 없습니다"}</div>
+      ${t.description ? `<p style="white-space:pre-wrap;word-break:break-word">${esc(t.description)}</p>` : ""}
+      ${link ? `<p><a href="${esc(link)}" target="_blank" rel="noopener noreferrer">참가 문의 / 오픈채팅 링크 →</a></p>` : ""}
+      ${isOwner ? `<div class="muted">내가 등록한 팀입니다.</div>` : ""}
+    </div>
+
+    <h2>후기</h2>
+    <div class="card">${formHtml}</div>
+    <div id="reviews">
+      ${reviews.length ? reviews.map(r => `
+        <div class="card">
+          <div class="row spread">
+            <span><span class="stars">${stars(r.rating)}</span> <span class="muted">${fmtDate(r.created_at)}</span></span>
+            <span>
+              ${user && r.user_id === user.id
+                ? `<button class="link" data-del="${esc(r.id)}">삭제</button>`
+                : `<button class="link" data-rep="${esc(r.id)}">신고</button>`}
+            </span>
+          </div>
+          <p class="review-text">${esc(r.content)}</p>
+        </div>`).join("") : `<div class="empty">첫 후기를 남겨 주세요.</div>`}
+    </div>`;
+
+  document.getElementById("back").onclick = () => { location.hash = "#/"; };
+  document.getElementById("report-team").onclick = () => report("team", t.id);
+  app.querySelectorAll("[data-rep]").forEach(b => { b.onclick = () => report("review", b.dataset.rep); });
+  app.querySelectorAll("[data-del]").forEach(b => {
+    b.onclick = async () => {
+      if (!confirm("이 후기를 삭제할까요?")) return;
+      const { error } = await sb.from("reviews").delete().eq("id", b.dataset.del);
+      if (error) return toast("삭제 실패: " + errMsg(error));
+      toast("삭제되었습니다.");
+      renderTeam(id);
+    };
+  });
+
+  const submit = document.getElementById("rv-submit");
+  if (submit) {
+    submit.onclick = async () => {
+      const content = document.getElementById("rv-content").value.trim();
+      const rating = parseInt(document.getElementById("rv-rating").value, 10);
+      if (content.length < 10) return toast("후기는 10자 이상 적어 주세요.");
+      submit.disabled = true;
+      const { error } = await sb.from("reviews").insert({ team_id: id, rating, content });
+      if (error) { submit.disabled = false; return toast("등록 실패: " + errMsg(error)); }
+      toast("후기가 등록되었습니다.");
+      renderTeam(id);
+    };
+  }
+}
+
+/* ---------- 화면: 팀 등록 ---------- */
+function renderNew() {
+  if (!user) {
+    app.innerHTML = `<div class="card"><h2>팀 등록</h2><p class="muted">팀을 등록하려면 먼저 로그인해 주세요.</p><button id="go-login">로그인하기</button></div>`;
+    document.getElementById("go-login").onclick = () => dlg.showModal();
+    return;
+  }
+  app.innerHTML = `
+    <button class="back" id="back">← 목록으로</button>
+    <div class="card">
+      <h2>팀 등록</h2>
+      <label for="n-name">팀 이름</label>
+      <input id="n-name" maxlength="40">
+
+      <label for="n-loc">주 활동 지역 (동까지 검색해서 선택)</label>
+      <div class="loc-wrap">
+        <input id="n-loc" placeholder="예: 대치동, 일원동, 잠실" autocomplete="off">
+        <div class="loc-list" id="n-loc-list" hidden></div>
+      </div>
+      <div class="picked" id="n-picked"></div>
+
+      <label>주로 뛰는 요일·시간 (요일을 고른 뒤 2시간 단위로 여러 개 선택)</label>
+      <div class="chips" id="day-tabs"></div>
+      <div class="chips" id="slot-grid" style="margin-top:8px"></div>
+      <div class="muted" id="sched-summary" style="margin-top:8px"></div>
+
+      <label for="n-level">실력대</label>
+      <select id="n-level">${options(LEVEL_NAMES, "", "선택")}</select>
+      <div class="level-desc" id="n-level-desc"></div>
+
+      <label for="n-desc">팀 소개</label>
+      <textarea id="n-desc" maxlength="1000" placeholder="분위기, 구장, 회비, 모집 포지션 등"></textarea>
+      <label for="n-link">문의 링크 (카카오 오픈채팅 등, https://로 시작)</label>
+      <input id="n-link" placeholder="https://open.kakao.com/...">
+      <div style="margin-top:14px"><button id="n-submit">등록하기</button></div>
+    </div>`;
+  document.getElementById("back").onclick = () => { location.hash = "#/"; };
+
+  // 지역
+  let loc = null;
+  const picked = document.getElementById("n-picked");
+  setupLocPicker(document.getElementById("n-loc"), document.getElementById("n-loc-list"), {
+    onlyDong: true,
+    onChange: (value, item) => {
+      loc = item && item.dong ? item : null;
+      picked.textContent = loc ? "✔ 선택됨: " + loc.gu + " " + loc.dong : "";
+    }
+  });
+
+  // 요일·시간
+  const sched = new Set();
+  let activeDay = "토";
+  const dayTabs = document.getElementById("day-tabs");
+  const slotGrid = document.getElementById("slot-grid");
+  const summary = document.getElementById("sched-summary");
+  function refreshSched() {
+    dayTabs.innerHTML = DAYS.map(d => {
+      const has = [...sched].some(s => s.startsWith(d + "|"));
+      return `<button type="button" class="chip${d === activeDay ? " on" : ""}${has ? " has" : ""}" data-day="${d}">${d}요일</button>`;
+    }).join("");
+    slotGrid.innerHTML = SLOTS.map(s => {
+      const key = activeDay + "|" + s;
+      return `<button type="button" class="chip${sched.has(key) ? " on" : ""}" data-slot="${s}">${slotLabel(s)}</button>`;
+    }).join("");
+    const lines = formatSchedule([...sched]);
+    summary.textContent = lines.length ? "선택한 시간: " + lines.join(" / ") : "선택한 시간이 아직 없습니다. 위에서 요일을 고르고 시간 칸을 눌러 주세요.";
+  }
+  dayTabs.onclick = e => {
+    const b = e.target.closest("[data-day]");
+    if (!b) return;
+    activeDay = b.dataset.day;
+    refreshSched();
+  };
+  slotGrid.onclick = e => {
+    const b = e.target.closest("[data-slot]");
+    if (!b) return;
+    const key = activeDay + "|" + b.dataset.slot;
+    if (sched.has(key)) sched.delete(key); else sched.add(key);
+    refreshSched();
+  };
+  refreshSched();
+
+  // 실력대 설명
+  const levelSel = document.getElementById("n-level");
+  levelSel.onchange = () => {
+    const info = LEVELS.find(l => l.name === levelSel.value);
+    document.getElementById("n-level-desc").textContent = info ? info.desc : "";
+  };
+
+  const btn = document.getElementById("n-submit");
+  btn.onclick = async () => {
+    const v = id => document.getElementById(id).value.trim();
+    const row = {
+      name: v("n-name"),
+      district: loc ? loc.gu : "",
+      dong: loc ? loc.dong : "",
+      play_slots: [...sched],
+      level: v("n-level"),
+      description: v("n-desc"),
+      contact_link: v("n-link")
+    };
+    if (!row.name) return toast("팀 이름을 입력해 주세요.");
+    if (!loc) return toast("주 활동 지역은 검색 목록에서 동까지 선택해 주세요.");
+    if (!row.play_slots.length) return toast("뛰는 요일과 시간을 하나 이상 선택해 주세요.");
+    if (!row.level) return toast("실력대를 선택해 주세요.");
+    if (row.contact_link && !safeUrl(row.contact_link)) return toast("문의 링크는 https://로 시작해야 합니다.");
+    btn.disabled = true;
+    const { data, error } = await sb.from("teams").insert(row).select().single();
+    if (error) { btn.disabled = false; return toast("등록 실패: " + errMsg(error)); }
+    toast("팀이 등록되었습니다.");
+    location.hash = "#/team/" + data.id;
+  };
+}
+
+/* ---------- 라우터 ---------- */
+function route() {
+  window.scrollTo(0, 0);
+  if (!configured) {
+    app.innerHTML = `<div class="notice"><b>아직 Supabase 연결 값이 입력되지 않았습니다.</b><br>config.js 파일의 SUPABASE_URL, SUPABASE_KEY 두 줄을 본인 값으로 바꿔 주세요. (주소는 https://....supabase.co 까지만 넣습니다.)</div>`;
+    return;
+  }
+  if (!GU_LIST.length) {
+    app.innerHTML = `<div class="notice"><b>지역 목록 파일(dongs.js)을 찾지 못했습니다.</b><br>GitHub 저장소에 dongs.js가 올라가 있는지 확인해 주세요.</div>`;
+    return;
+  }
+  const h = location.hash || "#/";
+  if (h.startsWith("#/team/")) renderTeam(decodeURIComponent(h.slice(7)));
+  else if (h === "#/new") renderNew();
+  else renderList();
+}
+window.addEventListener("hashchange", route);
+
+/* ---------- 시작 ---------- */
+(async function init() {
+  if (sb) {
+    const { data } = await sb.auth.getSession();
+    user = data.session ? data.session.user : null;
+    sb.auth.onAuthStateChange((_event, session) => {
+      const prev = user && user.id;
+      user = session ? session.user : null;
+      updateHeader();
+      if ((prev || null) !== (user && user.id)) route();
+    });
+  }
+  updateHeader();
+  route();
+})();
+</script>
+</body>
+</html>
