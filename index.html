@@ -1,0 +1,463 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>서울 조기축구</title>
+<style>
+  :root {
+    --green: #1f7a4d;
+    --green-dark: #165c39;
+    --bg: #f5f7f6;
+    --card: #ffffff;
+    --text: #1d2522;
+    --muted: #6b7772;
+    --line: #dfe5e2;
+    --danger: #c0392b;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.55;
+  }
+  header {
+    background: var(--green);
+    color: #fff;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  .bar {
+    max-width: 880px;
+    margin: 0 auto;
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .logo { font-weight: 700; font-size: 18px; cursor: pointer; flex: 1; }
+  main { max-width: 880px; margin: 0 auto; padding: 16px; }
+  button {
+    font: inherit;
+    border: 0;
+    border-radius: 8px;
+    padding: 8px 14px;
+    background: var(--green);
+    color: #fff;
+    cursor: pointer;
+  }
+  button:hover { background: var(--green-dark); }
+  button.ghost { background: transparent; color: #fff; border: 1px solid rgba(255,255,255,.6); }
+  button.ghost:hover { background: rgba(255,255,255,.12); }
+  button.light { background: #fff; color: var(--green); border: 1px solid var(--green); }
+  button.light:hover { background: #eef6f1; }
+  button.link { background: none; color: var(--muted); padding: 2px 6px; font-size: 13px; }
+  button.link:hover { background: none; color: var(--danger); }
+  button:disabled { opacity: .5; cursor: default; }
+  .filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; margin-bottom: 14px; }
+  input, select, textarea {
+    font: inherit;
+    width: 100%;
+    padding: 9px 10px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #fff;
+    color: var(--text);
+  }
+  textarea { min-height: 96px; resize: vertical; }
+  label { display: block; font-size: 14px; font-weight: 600; margin: 12px 0 4px; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+  }
+  .team-card { cursor: pointer; }
+  .team-card:hover { border-color: var(--green); }
+  .team-card h3 { margin: 0 0 4px; font-size: 17px; }
+  .tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+  .tag { background: #eaf4ee; color: var(--green-dark); border-radius: 999px; padding: 2px 10px; font-size: 13px; }
+  .muted { color: var(--muted); font-size: 14px; }
+  .stars { color: #e5a400; letter-spacing: 1px; }
+  .row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .spread { justify-content: space-between; }
+  .empty { text-align: center; color: var(--muted); padding: 40px 0; }
+  h2 { margin: 4px 0 12px; }
+  .back { background: none; color: var(--green); padding: 0; margin-bottom: 8px; }
+  .back:hover { background: none; text-decoration: underline; }
+  .notice { background: #fff4e5; border: 1px solid #f0c987; border-radius: 10px; padding: 12px 14px; margin-bottom: 14px; font-size: 14px; }
+  dialog { border: 0; border-radius: 14px; padding: 20px; width: min(92vw, 380px); }
+  dialog::backdrop { background: rgba(0,0,0,.4); }
+  #toast {
+    position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%);
+    background: #222; color: #fff; padding: 10px 16px; border-radius: 10px;
+    font-size: 14px; opacity: 0; pointer-events: none; transition: opacity .2s;
+    max-width: 90vw; text-align: center;
+  }
+  #toast.show { opacity: 1; }
+  .review-text { white-space: pre-wrap; word-break: break-word; margin: 6px 0 0; }
+  a { color: var(--green); }
+</style>
+</head>
+<body>
+<header>
+  <div class="bar">
+    <div class="logo" id="logo">⚽ 서울 조기축구</div>
+    <button class="ghost" id="btn-new">팀 등록</button>
+    <button class="ghost" id="btn-auth">로그인</button>
+  </div>
+</header>
+
+<main id="app"></main>
+
+<dialog id="auth-dialog">
+  <h3 style="margin-top:0">로그인 / 회원가입</h3>
+  <label for="auth-email">이메일</label>
+  <input id="auth-email" type="email" autocomplete="email" placeholder="example@email.com">
+  <label for="auth-pw">비밀번호 (6자 이상)</label>
+  <input id="auth-pw" type="password" autocomplete="current-password">
+  <div class="row" style="margin-top:16px">
+    <button id="auth-login">로그인</button>
+    <button class="light" id="auth-signup">회원가입</button>
+    <button class="link" id="auth-close" style="margin-left:auto">닫기</button>
+  </div>
+</dialog>
+
+<div id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+/* ============================================================
+   1) 여기 두 줄만 본인 값으로 바꾸세요 (Supabase > Project Settings > API)
+   ============================================================ */
+const SUPABASE_URL = "https://osdyfedbbwzxeibnsjyk.supabase.co/rest/v1/";
+const SUPABASE_KEY = "sb_publishable_B25mgyzcDmWNeZ5RghvG_w_LFofJiYG";
+/* ============================================================ */
+
+const configured = SUPABASE_URL.startsWith("http") && SUPABASE_KEY.length > 30;
+const sb = configured ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
+
+const DISTRICTS = ["강남구","강동구","강북구","강서구","관악구","광진구","구로구","금천구","노원구","도봉구","동대문구","동작구","마포구","서대문구","서초구","성동구","성북구","송파구","양천구","영등포구","용산구","은평구","종로구","중구","중랑구"];
+const DAYS = ["평일 아침","평일 저녁","토요일 아침","토요일 저녁","일요일 아침","일요일 저녁","요일 유동적"];
+const LEVELS = ["입문 (즐겁게)","아마추어","중급","상급 (진지하게)"];
+
+const app = document.getElementById("app");
+let user = null;
+const filters = { q: "", district: "", day: "", level: "" };
+
+/* ---------- 유틸 ---------- */
+function esc(s) {
+  return String(s ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+}
+function stars(n) {
+  const r = Math.round(n);
+  return "★".repeat(r) + "☆".repeat(5 - r);
+}
+function fmtDate(s) { return new Date(s).toLocaleDateString("ko-KR"); }
+function safeUrl(u) { return /^https?:\/\//i.test(u || "") ? u : ""; }
+function options(list, selected, placeholder) {
+  const head = placeholder !== undefined ? `<option value="">${esc(placeholder)}</option>` : "";
+  return head + list.map(v => `<option value="${esc(v)}"${v === selected ? " selected" : ""}>${esc(v)}</option>`).join("");
+}
+let toastTimer;
+function toast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove("show"), 2600);
+}
+function errMsg(e) { return (e && e.message) ? e.message : "알 수 없는 오류가 발생했습니다."; }
+function needLogin() {
+  toast("로그인이 필요합니다.");
+  document.getElementById("auth-dialog").showModal();
+}
+
+/* ---------- 로그인 ---------- */
+const dlg = document.getElementById("auth-dialog");
+document.getElementById("auth-close").onclick = () => dlg.close();
+
+async function doAuth(mode) {
+  if (!sb) return toast("Supabase 연결 값이 아직 입력되지 않았습니다.");
+  const email = document.getElementById("auth-email").value.trim();
+  const password = document.getElementById("auth-pw").value;
+  if (!email || password.length < 6) return toast("이메일과 6자 이상의 비밀번호를 입력해 주세요.");
+  if (mode === "login") {
+    const { error } = await sb.auth.signInWithPassword({ email, password });
+    if (error) return toast("로그인 실패: " + errMsg(error));
+    dlg.close();
+    toast("로그인되었습니다.");
+  } else {
+    const { data, error } = await sb.auth.signUp({ email, password });
+    if (error) return toast("가입 실패: " + errMsg(error));
+    dlg.close();
+    toast(data.session ? "가입되었습니다." : "가입 확인 메일을 보냈습니다. 메일의 링크를 눌러 주세요.");
+  }
+}
+document.getElementById("auth-login").onclick = () => doAuth("login");
+document.getElementById("auth-signup").onclick = () => doAuth("signup");
+
+document.getElementById("btn-auth").onclick = async () => {
+  if (user) {
+    await sb.auth.signOut();
+    toast("로그아웃되었습니다.");
+  } else {
+    dlg.showModal();
+  }
+};
+document.getElementById("btn-new").onclick = () => { location.hash = "#/new"; };
+document.getElementById("logo").onclick = () => { location.hash = "#/"; };
+
+function updateHeader() {
+  document.getElementById("btn-auth").textContent = user ? "로그아웃" : "로그인";
+}
+
+/* ---------- 화면: 팀 목록 ---------- */
+async function renderList() {
+  app.innerHTML = `
+    <div class="filters">
+      <input id="f-q" placeholder="팀 이름 검색" value="${esc(filters.q)}">
+      <select id="f-district">${options(DISTRICTS, filters.district, "전체 지역")}</select>
+      <select id="f-day">${options(DAYS, filters.day, "전체 요일")}</select>
+      <select id="f-level">${options(LEVELS, filters.level, "전체 실력")}</select>
+    </div>
+    <div id="list"><div class="empty">불러오는 중...</div></div>`;
+
+  const { data, error } = await sb.from("teams").select("*, reviews(rating)").order("created_at", { ascending: false });
+  if (error) {
+    document.getElementById("list").innerHTML = `<div class="empty">불러오지 못했습니다: ${esc(errMsg(error))}</div>`;
+    return;
+  }
+  const teams = data.map(t => {
+    const rs = t.reviews || [];
+    const avg = rs.length ? rs.reduce((a, r) => a + r.rating, 0) / rs.length : 0;
+    return { ...t, count: rs.length, avg };
+  });
+
+  function draw() {
+    const q = filters.q.trim().toLowerCase();
+    const shown = teams.filter(t =>
+      (!q || t.name.toLowerCase().includes(q)) &&
+      (!filters.district || t.district === filters.district) &&
+      (!filters.day || t.play_day === filters.day) &&
+      (!filters.level || t.level === filters.level)
+    );
+    const box = document.getElementById("list");
+    if (!shown.length) {
+      box.innerHTML = `<div class="empty">조건에 맞는 팀이 없습니다.<br>첫 번째 팀을 등록해 보세요.</div>`;
+      return;
+    }
+    box.innerHTML = shown.map(t => `
+      <div class="card team-card" data-id="${esc(t.id)}">
+        <h3>${esc(t.name)}</h3>
+        <div class="tags">
+          <span class="tag">${esc(t.district)}</span>
+          <span class="tag">${esc(t.play_day)}</span>
+          <span class="tag">${esc(t.level)}</span>
+        </div>
+        <div class="muted">
+          ${t.count ? `<span class="stars">${stars(t.avg)}</span> ${t.avg.toFixed(1)} · 후기 ${t.count}개` : "아직 후기가 없습니다"}
+        </div>
+      </div>`).join("");
+    box.querySelectorAll(".team-card").forEach(el => {
+      el.onclick = () => { location.hash = "#/team/" + el.dataset.id; };
+    });
+  }
+
+  document.getElementById("f-q").oninput = e => { filters.q = e.target.value; draw(); };
+  document.getElementById("f-district").onchange = e => { filters.district = e.target.value; draw(); };
+  document.getElementById("f-day").onchange = e => { filters.day = e.target.value; draw(); };
+  document.getElementById("f-level").onchange = e => { filters.level = e.target.value; draw(); };
+  draw();
+}
+
+/* ---------- 화면: 팀 상세 ---------- */
+async function report(targetType, targetId) {
+  if (!user) return needLogin();
+  const reason = prompt("신고 사유를 간단히 적어 주세요. (허위 후기, 홍보 도배, 욕설 등)");
+  if (!reason || !reason.trim()) return;
+  const { error } = await sb.from("reports").insert({ target_type: targetType, target_id: targetId, reason: reason.trim() });
+  toast(error ? "신고 실패: " + errMsg(error) : "신고가 접수되었습니다.");
+}
+
+async function renderTeam(id) {
+  app.innerHTML = `<div class="empty">불러오는 중...</div>`;
+  const [tRes, rRes] = await Promise.all([
+    sb.from("teams").select("*").eq("id", id).maybeSingle(),
+    sb.from("reviews").select("*").eq("team_id", id).order("created_at", { ascending: false })
+  ]);
+  if (tRes.error || !tRes.data) {
+    app.innerHTML = `<button class="back" onclick="location.hash='#/'">← 목록으로</button><div class="empty">팀을 찾을 수 없습니다.</div>`;
+    return;
+  }
+  const t = tRes.data;
+  const reviews = rRes.data || [];
+  const avg = reviews.length ? reviews.reduce((a, r) => a + r.rating, 0) / reviews.length : 0;
+  const link = safeUrl(t.contact_link);
+  const isOwner = user && t.owner_id === user.id;
+  const already = user && reviews.some(r => r.user_id === user.id);
+
+  let formHtml;
+  if (!user) {
+    formHtml = `<div class="muted">후기를 쓰려면 로그인해 주세요.</div>`;
+  } else if (isOwner) {
+    formHtml = `<div class="muted">본인이 등록한 팀에는 후기를 쓸 수 없습니다.</div>`;
+  } else if (already) {
+    formHtml = `<div class="muted">이미 이 팀에 후기를 남기셨습니다.</div>`;
+  } else {
+    formHtml = `
+      <label for="rv-rating">별점</label>
+      <select id="rv-rating">
+        <option value="5">★★★★★ (5)</option>
+        <option value="4">★★★★☆ (4)</option>
+        <option value="3">★★★☆☆ (3)</option>
+        <option value="2">★★☆☆☆ (2)</option>
+        <option value="1">★☆☆☆☆ (1)</option>
+      </select>
+      <label for="rv-content">직접 참여해 본 경험을 적어 주세요</label>
+      <textarea id="rv-content" maxlength="1000" placeholder="분위기, 실력대, 운영 방식, 구장 상태 등"></textarea>
+      <div style="margin-top:10px"><button id="rv-submit">후기 등록</button></div>`;
+  }
+
+  app.innerHTML = `
+    <button class="back" id="back">← 목록으로</button>
+    <div class="card">
+      <div class="row spread">
+        <h2 style="margin:0">${esc(t.name)}</h2>
+        <button class="link" id="report-team">신고</button>
+      </div>
+      <div class="tags">
+        <span class="tag">${esc(t.district)}</span>
+        <span class="tag">${esc(t.play_day)}</span>
+        <span class="tag">${esc(t.level)}</span>
+      </div>
+      <div class="muted">${reviews.length ? `<span class="stars">${stars(avg)}</span> ${avg.toFixed(1)} · 후기 ${reviews.length}개` : "아직 후기가 없습니다"}</div>
+      ${t.description ? `<p style="white-space:pre-wrap;word-break:break-word">${esc(t.description)}</p>` : ""}
+      ${link ? `<p><a href="${esc(link)}" target="_blank" rel="noopener noreferrer">참가 문의 / 오픈채팅 링크 →</a></p>` : ""}
+      ${isOwner ? `<div class="muted">내가 등록한 팀입니다.</div>` : ""}
+    </div>
+
+    <h2>후기</h2>
+    <div class="card">${formHtml}</div>
+    <div id="reviews">
+      ${reviews.length ? reviews.map(r => `
+        <div class="card">
+          <div class="row spread">
+            <span><span class="stars">${stars(r.rating)}</span> <span class="muted">${fmtDate(r.created_at)}</span></span>
+            <span>
+              ${user && r.user_id === user.id
+                ? `<button class="link" data-del="${esc(r.id)}">삭제</button>`
+                : `<button class="link" data-rep="${esc(r.id)}">신고</button>`}
+            </span>
+          </div>
+          <p class="review-text">${esc(r.content)}</p>
+        </div>`).join("") : `<div class="empty">첫 후기를 남겨 주세요.</div>`}
+    </div>`;
+
+  document.getElementById("back").onclick = () => { location.hash = "#/"; };
+  document.getElementById("report-team").onclick = () => report("team", t.id);
+  app.querySelectorAll("[data-rep]").forEach(b => { b.onclick = () => report("review", b.dataset.rep); });
+  app.querySelectorAll("[data-del]").forEach(b => {
+    b.onclick = async () => {
+      if (!confirm("이 후기를 삭제할까요?")) return;
+      const { error } = await sb.from("reviews").delete().eq("id", b.dataset.del);
+      if (error) return toast("삭제 실패: " + errMsg(error));
+      toast("삭제되었습니다.");
+      renderTeam(id);
+    };
+  });
+
+  const submit = document.getElementById("rv-submit");
+  if (submit) {
+    submit.onclick = async () => {
+      const content = document.getElementById("rv-content").value.trim();
+      const rating = parseInt(document.getElementById("rv-rating").value, 10);
+      if (content.length < 10) return toast("후기는 10자 이상 적어 주세요.");
+      submit.disabled = true;
+      const { error } = await sb.from("reviews").insert({ team_id: id, rating, content });
+      if (error) { submit.disabled = false; return toast("등록 실패: " + errMsg(error)); }
+      toast("후기가 등록되었습니다.");
+      renderTeam(id);
+    };
+  }
+}
+
+/* ---------- 화면: 팀 등록 ---------- */
+function renderNew() {
+  if (!user) {
+    app.innerHTML = `<div class="card"><h2>팀 등록</h2><p class="muted">팀을 등록하려면 먼저 로그인해 주세요.</p><button id="go-login">로그인하기</button></div>`;
+    document.getElementById("go-login").onclick = () => dlg.showModal();
+    return;
+  }
+  app.innerHTML = `
+    <button class="back" id="back">← 목록으로</button>
+    <div class="card">
+      <h2>팀 등록</h2>
+      <label for="n-name">팀 이름</label>
+      <input id="n-name" maxlength="40">
+      <label for="n-district">주 활동 지역</label>
+      <select id="n-district">${options(DISTRICTS, "", "선택")}</select>
+      <label for="n-day">주로 뛰는 시간</label>
+      <select id="n-day">${options(DAYS, "", "선택")}</select>
+      <label for="n-level">실력대</label>
+      <select id="n-level">${options(LEVELS, "", "선택")}</select>
+      <label for="n-desc">팀 소개</label>
+      <textarea id="n-desc" maxlength="1000" placeholder="분위기, 구장, 회비, 모집 포지션 등"></textarea>
+      <label for="n-link">문의 링크 (카카오 오픈채팅 등, https://로 시작)</label>
+      <input id="n-link" placeholder="https://open.kakao.com/...">
+      <div style="margin-top:14px"><button id="n-submit">등록하기</button></div>
+    </div>`;
+  document.getElementById("back").onclick = () => { location.hash = "#/"; };
+  const btn = document.getElementById("n-submit");
+  btn.onclick = async () => {
+    const v = id => document.getElementById(id).value.trim();
+    const row = {
+      name: v("n-name"), district: v("n-district"), play_day: v("n-day"),
+      level: v("n-level"), description: v("n-desc"), contact_link: v("n-link")
+    };
+    if (!row.name || !row.district || !row.play_day || !row.level) return toast("이름, 지역, 시간, 실력대는 꼭 선택해 주세요.");
+    if (row.contact_link && !safeUrl(row.contact_link)) return toast("문의 링크는 https://로 시작해야 합니다.");
+    btn.disabled = true;
+    const { data, error } = await sb.from("teams").insert(row).select().single();
+    if (error) { btn.disabled = false; return toast("등록 실패: " + errMsg(error)); }
+    toast("팀이 등록되었습니다.");
+    location.hash = "#/team/" + data.id;
+  };
+}
+
+/* ---------- 라우터 ---------- */
+function route() {
+  window.scrollTo(0, 0);
+  if (!configured) {
+    app.innerHTML = `<div class="notice"><b>아직 Supabase 연결 값이 입력되지 않았습니다.</b><br>index.html 파일을 열어 위쪽의 SUPABASE_URL, SUPABASE_KEY 두 줄을 본인 값으로 바꿔 주세요.</div>`;
+    return;
+  }
+  const h = location.hash || "#/";
+  if (h.startsWith("#/team/")) renderTeam(decodeURIComponent(h.slice(7)));
+  else if (h === "#/new") renderNew();
+  else renderList();
+}
+window.addEventListener("hashchange", route);
+
+/* ---------- 시작 ---------- */
+(async function init() {
+  if (sb) {
+    const { data } = await sb.auth.getSession();
+    user = data.session ? data.session.user : null;
+    sb.auth.onAuthStateChange((_event, session) => {
+      const prev = user && user.id;
+      user = session ? session.user : null;
+      updateHeader();
+      if ((prev || null) !== (user && user.id)) route();
+    });
+  }
+  updateHeader();
+  route();
+})();
+</script>
+</body>
+</html>
